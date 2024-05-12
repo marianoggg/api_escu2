@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from models.userModel import sesionPepito, User, InputUser
+from models.userModel import session, User, InputUser, InputLogin
 
 
 user = APIRouter()
@@ -13,25 +13,44 @@ def welcome():
 @user.get("/users/all")
 def obtener_usuarios():
     try:
-        return sesionPepito.query(User).all()
+        return session.query(User).all()
     except Exception as e:
         print(e)
 
 
-@user.post("/users/new")
+@user.post("/users/add")
 def crear_usuario(user: InputUser):
-    usuNuevo = User(user.id, user.username, user.password)
-    sesionPepito.add(usuNuevo)
-    sesionPepito.commit()
+    usuNuevo = User(
+        user.id,
+        user.username,
+        user.password,
+        user.firstName,
+        user.lastName,
+    )
+    session.add(usuNuevo)
+    session.commit()
     return "usuario agregado"
 
 
-@user.get("/users/login/{un}")
-def login(un: str):
+@user.post("/users/loginUser")
+def login_post(user: InputLogin):
     try:
-        res = sesionPepito.query(User).filter(User.username == un)
-        if res.first():
-            return res.first()
+        usu = User(0, user.username, user.password, "", "")
+        res = session.query(User).filter(User.username == usu.username).first()
+        if res.password == usu.password:
+            return res
+        else:
+            return None
+    except Exception as e:
+        print(e)
+
+
+@user.get("/users/login/{un}")
+def login_get(un: str):
+    try:
+        res = session.query(User).filter(User.username == un).first()
+        if res:
+            return res
         else:
             return None
     except:
