@@ -21,11 +21,7 @@ def obtener_usuarios():
 @user.post("/users/add")
 def crear_usuario(user: InputUser):
     usuNuevo = User(
-        user.id,
-        user.username,
-        user.password,
-        user.firstName,
-        user.lastName,
+        user.id, user.username, user.password, user.firstName, user.lastName
     )
     session.add(usuNuevo)
     session.commit()
@@ -45,7 +41,7 @@ def login_post(user: InputLogin):
         print(e)
 
 
-@user.get("/users/login/{un}")
+""" @user.get("/users/login/{un}")
 def login_get(un: str):
     try:
         res = session.query(User).filter(User.username == un).first()
@@ -54,4 +50,4 @@ def login_get(un: str):
         else:
             return None
     except:
-        print(Exception)
+        print(Exception)  """

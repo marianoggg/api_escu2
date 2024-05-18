@@ -14,14 +14,7 @@ class User(Base):
     firstName = Column("firstName", String)
     lastName = Column("lastName", String)
 
-    def __init__(
-        self,
-        id,
-        username,
-        password,
-        firstName,
-        lastName,
-    ):
+    def __init__(self, id, username, password, firstName, lastName):
         self.id = id
         self.username = username
         self.password = password
