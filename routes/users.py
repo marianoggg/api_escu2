@@ -1,10 +1,10 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from psycopg2 import IntegrityError
-from models.userModel import session, User, UserDetail, InputUser, InputLogin
-from sqlalchemy.orm import (
-    joinedload,
-)  ## para usar la tecnica de carga con union (join loading) para devolcer el objeto user cada user con su userDetail
+from models.models import session, User, UserDetail, InputUser, InputLogin
+from sqlalchemy.orm import joinedload
+
+## para usar la tecnica de carga con union (join loading) para devolver el objeto user con cada uno de sus userDetail
 
 
 user = APIRouter()
@@ -18,11 +18,22 @@ def welcome():
 @user.get("/users/all")
 def obtener_usuarios():
     try:
-        usuarios = session.query(User).options(joinedload("userdetail")).all()
+        # Carga los detalles del usuario con unión
+        usuarios = session.query(User).options(joinedload(User.userdetail)).all()
 
         # Convierte los usuarios en una lista de diccionarios
         usuarios_con_detalles = []
         for usuario in usuarios:
+            payDet = []
+            payments = usuario.payments
+            for payment in payments:
+                payDetail = {
+                    "id": payment.id,
+                    "date": payment.created_at,
+                    "affected_month": payment.affected_month,
+                    "amount": payment.amount,
+                }
+                payDet.append(payDetail)
             usuario_con_detalle = {
                 "id": usuario.id,
                 "username": usuario.username,
@@ -31,10 +42,11 @@ def obtener_usuarios():
                 "firstname": usuario.userdetail.firstname,
                 "lastname": usuario.userdetail.lastname,
                 "type": usuario.userdetail.type,
+                "payDetail": payDet,
             }
             usuarios_con_detalles.append(usuario_con_detalle)
 
-        return JSONResponse(status_code=200, content=usuarios_con_detalles)
+        return usuarios_con_detalles
     except Exception as e:
         print("Error al obtener usuarios:", e)
         return JSONResponse(
@@ -57,9 +69,9 @@ def crear_usuario(user: InputUser):
                 )
                 newUser.userdetail = newUserDetail
 
-                session_user.add(newUser)
-                session_user.commit()
-                session_user.close()
+                session.add(newUser)
+                session.commit()
+                session.close()
                 return "usuario agregado"
             else:
                 return "el email ya existe"
@@ -88,7 +100,7 @@ def crear_usuario(user: InputUser):
 def login_post(user: InputLogin):
     try:
         usu = User(user.username, user.password, "", "")
-        res = session_user.query(User).filter(User.username == usu.username).first()
+        res = session.query(User).filter(User.username == usu.username).first()
         if res.password == usu.password:
             return res
         else:
@@ -100,7 +112,7 @@ def login_post(user: InputLogin):
 """ @user.get("/users/login/{un}")
 def login_get(un: str):
     try:
-        res = session_user.query(User).filter(User.username == un).first()
+        res = session.query(User).filter(User.username == un).first()
         if res:
             return res
         else:
@@ -110,8 +122,8 @@ def login_get(un: str):
 
 
 def validate_username(value):
-    existing_user = session_user.query(User).filter(User.username == value).first()
-    session_user.close()
+    existing_user = session.query(User).filter(User.username == value).first()
+    session.close()
     if existing_user:
         ##raise ValueError("Username already exists")
         return None
@@ -120,8 +132,8 @@ def validate_username(value):
 
 
 def validate_email(value):
-    existing_email = session_user.query(User).filter(User.email == value).first()
-    session_user.close()
+    existing_email = session.query(User).filter(User.email == value).first()
+    session.close()
     if existing_email:
         ##raise ValueError("Username already exists")
         return None

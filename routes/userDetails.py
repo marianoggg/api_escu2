@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-from models.userModel import session, UserDetail, InputUserDetail
+from models.models import session, UserDetail, InputUserDetail
 
 
 userDetail = APIRouter()

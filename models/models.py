@@ -1,9 +1,8 @@
 from config.db import engine, Base
-from sqlalchemy import Column, Integer, String, ForeignKey
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy.orm import sessionmaker, relationship, mapped_column
 from pydantic import BaseModel, EmailStr
-
-# from datetime import datetime
+import datetime
 
 
 class User(Base):
@@ -17,6 +16,7 @@ class User(Base):
     # created_at = Column(DateTime(), default=datetime.now())
     id_userdetail = Column(Integer, ForeignKey("userdetails.id"))
     userdetail = relationship("UserDetail", backref="user", uselist=False)
+    payments = relationship("Payment")
 
     def __init__(self, username, password, email):
         self.username = username
@@ -47,11 +47,56 @@ class UserDetail(Base):
         self.type = type
 
 
+class Payment(Base):
+
+    __tablename__ = "payments"
+
+    id = Column("id", Integer, primary_key=True)
+    created_at = Column(DateTime, default=datetime.datetime.now())
+    amount = Column(Integer)
+    affected_month = Column(DateTime())
+    user_id = Column(Integer, ForeignKey("users.id"))
+    career_id = Column(Integer, ForeignKey("careers.id"))
+    career = relationship("Career", uselist=False)
+    user = relationship("User", uselist=False)
+
+    def __init__(self, user_id, career_id, amount, affected_month):
+        self.user_id = user_id
+        self.career_id = career_id
+        self.amount = amount
+        self.affected_month = affected_month
+
+
+class Career(Base):
+
+    __tablename__ = "careers"
+
+    id = mapped_column("id", Integer, primary_key=True)
+    name = mapped_column(String)
+
+    def __init__(
+        self,
+        name,
+    ):
+        self.name = name
+
+
+class InputCareer(BaseModel):
+    name: str
+
+
+class InputPayment(BaseModel):
+    user_id: int
+    career_id: int
+    amount: int
+    affected_month: datetime.date
+
+
 class InputUser(BaseModel):
     username: str
     password: str
     email: EmailStr
-    dni: int
+    dni: int | None
     firstname: str
     lastname: str
     type: str
@@ -69,11 +114,11 @@ class InputUserDetail(BaseModel):
     type: str
 
 
-Base.metadata.drop_all(bind=engine)
-Base.metadata.create_all(bind=engine)
+# Base.metadata.drop_all(engine)
+Base.metadata.create_all(engine)
 
 # creo una clase tipo sessionmaker
-Session = sessionmaker(bind=engine)
+Session = sessionmaker(engine)
 
-# instancio un objeto que apunte a cada clase Session
+# instancio un objeto Session
 session = Session()
