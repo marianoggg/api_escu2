@@ -1,7 +1,15 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from psycopg2 import IntegrityError
-from models.models import session, User, UserDetail, InputUser, InputLogin
+from models.models import (
+    session,
+    User,
+    UserDetail,
+    InputUser,
+    InputLogin,
+    InputUserPay,
+    Payment,
+)
 from sqlalchemy.orm import joinedload
 
 ## para usar la tecnica de carga con union (join loading) para devolver el objeto user con cada uno de sus userDetail
@@ -17,44 +25,43 @@ def welcome():
 
 @user.get("/users/all")
 def obtener_usuarios():
-    try:
-        # Carga los detalles del usuario con unión
-        usuarios = session.query(User).options(joinedload(User.userdetail)).all()
-
-        # Convierte los usuarios en una lista de diccionarios
-        usuarios_con_detalles = []
-        for usuario in usuarios:
-            payDet = []
-            payments = usuario.payments
-            for payment in payments:
-                payDetail = {
-                    "id": payment.id,
-                    "date": payment.created_at,
-                    "affected_month": payment.affected_month,
-                    "amount": payment.amount,
-                }
-                payDet.append(payDetail)
-            usuario_con_detalle = {
-                "id": usuario.id,
-                "username": usuario.username,
-                "email": usuario.email,
-                "dni": usuario.userdetail.dni,
-                "firstname": usuario.userdetail.firstname,
-                "lastname": usuario.userdetail.lastname,
-                "type": usuario.userdetail.type,
-                "payDetail": payDet,
-            }
-            usuarios_con_detalles.append(usuario_con_detalle)
-
-        return usuarios_con_detalles
-    except Exception as e:
-        print("Error al obtener usuarios:", e)
-        return JSONResponse(
-            status_code=500, content={"detail": "Error al obtener usuarios"}
-        )
+    usuarios = session.query(User).all()
+    for ele in usuarios:
+        print(ele.userdetail.firstname)
+    return usuarios
 
 
-@user.post("/users/add")
+# El siguiente endpoint intenta devolver de manera erronea
+# los pagos del usuario filtrado
+# El error radica en devolver el objeto de relacion completo:
+# usuario.payments
+# en lugar de consultar explicitamente los pagos del usuario
+# sobre dicho objeto de relacion.
+@user.post("/users/payments1")
+def show_user_payments(u: InputUserPay):
+    usuario = session.query(User).filter(User.id == u.id).first()
+    if usuario:
+        return usuario.payments
+    else:
+        return "Usuario no existe"
+
+
+# Solucion
+@user.post("/users/payments2")
+def show_user_payments(u: InputUserPay):
+    usuario = session.query(User).filter(User.id == u.id).first()
+    if usuario:
+        # Filtra los pagos del usuario actual a través de la relación
+        payments = usuario.payments.filter(Payment.user == usuario)
+        payments1 = usuario.get_payments(
+            usuario.id
+        )  # opcion usando un filtro definido especialmente en la clase User para filtrar pagos.
+        return payments  # Devuelve solo los pagos del usuario filtrado
+    else:
+        return "Usuario no existe"
+
+
+@user.post("/users/add")  # endpoint
 def crear_usuario(user: InputUser):
     try:
         if validate_username(user.username):
@@ -107,18 +114,6 @@ def login_post(user: InputLogin):
             return None
     except Exception as e:
         print(e)
-
-
-""" @user.get("/users/login/{un}")
-def login_get(un: str):
-    try:
-        res = session.query(User).filter(User.username == un).first()
-        if res:
-            return res
-        else:
-            return None
-    except:
-        print(Exception)  """
 
 
 def validate_username(value):

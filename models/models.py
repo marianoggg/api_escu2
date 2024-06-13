@@ -13,18 +13,14 @@ class User(Base):
     username = Column(String(50), nullable=False, unique=True)
     password = Column("password", String)
     email = Column("email", String(80), nullable=False, unique=True)
-    # created_at = Column(DateTime(), default=datetime.now())
     id_userdetail = Column(Integer, ForeignKey("userdetails.id"))
-    userdetail = relationship("UserDetail", backref="user", uselist=False)
-    payments = relationship("Payment")
+    userdetail = relationship("UserDetail", uselist=False)
+    payments = relationship("Payment", back_populates="user")
 
     def __init__(self, username, password, email):
         self.username = username
         self.password = password
         self.email = email
-
-    """ def __str__(self):
-        return self.username """
 
 
 class UserDetail(Base):
@@ -37,9 +33,6 @@ class UserDetail(Base):
     lastname = Column("lastname", String)
     type = Column("type", String)
 
-    # Referencia de retorno a Usuario
-    # usuario = relationship("User", backref="userdetail", uselist=False)
-
     def __init__(self, dni, firstname, lastname, type):
         self.dni = dni
         self.firstname = firstname
@@ -48,21 +41,20 @@ class UserDetail(Base):
 
 
 class Payment(Base):
-
     __tablename__ = "payments"
 
-    id = Column("id", Integer, primary_key=True)
-    created_at = Column(DateTime, default=datetime.datetime.now())
-    amount = Column(Integer)
-    affected_month = Column(DateTime())
-    user_id = Column(Integer, ForeignKey("users.id"))
-    career_id = Column(Integer, ForeignKey("careers.id"))
+    id = mapped_column("id", Integer, primary_key=True)
+    career_id = mapped_column(ForeignKey("careers.id"))
+    user_id = mapped_column(ForeignKey("users.id"))
+    amount = mapped_column(Integer)
+    affected_month = mapped_column(DateTime)
+    created_at = mapped_column(DateTime, default=datetime.datetime.now())
+    user = relationship("User", uselist=False, back_populates="payments")
     career = relationship("Career", uselist=False)
-    user = relationship("User", uselist=False)
 
-    def __init__(self, user_id, career_id, amount, affected_month):
-        self.user_id = user_id
+    def __init__(self, career_id, user_id, amount, affected_month):
         self.career_id = career_id
+        self.user_id = user_id
         self.amount = amount
         self.affected_month = affected_month
 
@@ -86,8 +78,8 @@ class InputCareer(BaseModel):
 
 
 class InputPayment(BaseModel):
-    user_id: int
     career_id: int
+    user_id: int
     amount: int
     affected_month: datetime.date
 
@@ -105,6 +97,10 @@ class InputUser(BaseModel):
 class InputLogin(BaseModel):
     username: str
     password: str
+
+
+class InputUserPay(BaseModel):
+    id: int
 
 
 class InputUserDetail(BaseModel):
