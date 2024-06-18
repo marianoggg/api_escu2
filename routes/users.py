@@ -8,9 +8,10 @@ from models.models import (
     InputUser,
     InputLogin,
     InputUserPay,
-    Payment,
+    InputUserChanges,
 )
 from sqlalchemy.orm import joinedload
+from auth.security import Security
 
 ## para usar la tecnica de carga con union (join loading) para devolver el objeto user con cada uno de sus userDetail
 
@@ -31,32 +32,11 @@ def obtener_usuarios():
     return usuarios
 
 
-# El siguiente endpoint intenta devolver de manera erronea
-# los pagos del usuario filtrado
-# El error radica en devolver el objeto de relacion completo:
-# usuario.payments
-# en lugar de consultar explicitamente los pagos del usuario
-# sobre dicho objeto de relacion.
-@user.post("/users/payments1")
+@user.post("/users/payments")
 def show_user_payments(u: InputUserPay):
     usuario = session.query(User).filter(User.id == u.id).first()
     if usuario:
         return usuario.payments
-    else:
-        return "Usuario no existe"
-
-
-# Solucion
-@user.post("/users/payments2")
-def show_user_payments(u: InputUserPay):
-    usuario = session.query(User).filter(User.id == u.id).first()
-    if usuario:
-        # Filtra los pagos del usuario actual a través de la relación
-        payments = usuario.payments.filter(Payment.user == usuario)
-        payments1 = usuario.get_payments(
-            usuario.id
-        )  # opcion usando un filtro definido especialmente en la clase User para filtrar pagos.
-        return payments  # Devuelve solo los pagos del usuario filtrado
     else:
         return "Usuario no existe"
 
@@ -104,16 +84,70 @@ def crear_usuario(user: InputUser):
 
 
 @user.post("/users/loginUser")
-def login_post(user: InputLogin):
+def login_post(userIn: InputLogin):
     try:
-        usu = User(user.username, user.password, "", "")
-        res = session.query(User).filter(User.username == usu.username).first()
-        if res.password == usu.password:
-            return res
+        user = session.query(User).filter(User.username == userIn.username).first()
+        if not user.password == userIn.password:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "success": False,
+                    "message": "Usuario y/o password incorrectos!",
+                },
+            )
         else:
-            return None
+            authDat = Security.generate_token(user)
+            if not authDat:
+                return JSONResponse(
+                    status_code=401,
+                    content={
+                        "success": False,
+                        "message": "Error de generación de token!",
+                    },
+                )
+            else:
+                return JSONResponse(
+                    status_code=200, content={"success": True, "token": authDat}
+                )
+
     except Exception as e:
         print(e)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "message": "Error interno del servidor",
+            },
+        )
+
+
+@user.put("/users/emailChange")
+def email_update(usrToChange: InputUserChanges):
+    user = session.query(User).filter(User.username == usrToChange.username).first()
+    if not user:
+        return JSONResponse(
+            status_code=404, content={"detail": "Usuario no encontrado"}
+        )
+    EmExist = session.query(User).filter(User.email == usrToChange.email).first()
+    if EmExist:
+        return JSONResponse(status_code=404, content={"detail": "Email ya existe"})
+    user.email = usrToChange.email
+    session.commit()
+    session.refresh(user)
+    return {"mensaje": "Email actualizado!!", "usuario": user}
+
+
+@user.put("/users/passwordChange")
+def email_update(usrToChange: InputUserChanges):
+    user = session.query(User).filter(User.username == usrToChange.username).first()
+    if not user:
+        return JSONResponse(
+            status_code=404, content={"detail": "Usuario no encontrado"}
+        )
+    user.password = usrToChange.password
+    session.commit()
+    session.refresh(user)
+    return {"mensaje": "Password cambiada!!", "usuario": user}
 
 
 def validate_username(value):

@@ -110,6 +110,12 @@ class InputUserDetail(BaseModel):
     type: str
 
 
+class InputUserChanges(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+
+
 # Base.metadata.drop_all(engine)
 Base.metadata.create_all(engine)
 
