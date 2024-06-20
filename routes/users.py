@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from psycopg2 import IntegrityError
 from models.models import (
@@ -25,20 +25,35 @@ def welcome():
 
 
 @user.get("/users/all")
-def obtener_usuarios():
-    usuarios = session.query(User).all()
-    for ele in usuarios:
-        print(ele.userdetail.firstname)
-    return usuarios
+def obtener_usuarios(req: Request):
+    has_access = Security.verify_token(req.headers)
+    if "iat" in has_access:
+        usuarios = session.query(User).all()
+        return usuarios
+    else:
+        return JSONResponse(
+            status_code=401,
+            content=has_access,
+        )
 
 
 @user.post("/users/payments")
-def show_user_payments(u: InputUserPay):
-    usuario = session.query(User).filter(User.id == u.id).first()
-    if usuario:
-        return usuario.payments
+def show_user_payments(u: InputUserPay, req: Request):
+    has_access = Security.verify_token(req.headers)
+    if "iat" in has_access:
+        usuario = session.query(User).filter(User.id == u.id).first()
+        if usuario:
+            return usuario.payments
+        else:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "message": "No se encontró el usuario!"},
+            )
     else:
-        return "Usuario no existe"
+        return JSONResponse(
+            status_code=401,
+            content=has_access,
+        )
 
 
 @user.post("/users/add")  # endpoint
